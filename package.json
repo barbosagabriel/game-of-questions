@@ -1,0 +1,31 @@
+{
+  "name": "game-of-questions",
+  "version": "1.0.0",
+  "description": "The game is a 'fastest finger' trivia game for multi-players",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/barbosagabriel/game-of-questions.git"
+  },
+  "keywords": [
+    "trivia",
+    "game",
+    "questions",
+    "node",
+    "nodejs"
+  ],
+  "author": "Gabriel Barbosa",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/barbosagabriel/game-of-questions/issues"
+  },
+  "homepage": "https://github.com/barbosagabriel/game-of-questions#readme",
+  "dependencies": {
+    "ejs": "^2.7.1",
+    "express": "^4.17.1",
+    "socket.io": "^2.3.0"
+  }
+}

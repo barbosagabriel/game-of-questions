@@ -1,0 +1,41 @@
+<html>
+  <head>
+    <title>Game of Questions</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
+  </head>
+  <body>
+    <div id="questions"></div>
+
+    <button
+      type="button"
+      id="next-question"
+      onclick="nextQuestion()"
+      style="display: none;"
+    >
+      Next question
+    </button>
+    <button type="button" id="start-game" onclick="startGame()">
+      Start game
+    </button>
+
+    <script type="text/javascript">
+      var socket = io("http://localhost:3000");
+
+      function startGame() {
+        socket.emit("game-started");
+        document.getElementById("start-game").style.display = "none";
+        document.getElementById("next-question").style.display = "block";
+      }
+
+      function nextQuestion() {
+        socket.emit("play-next");
+      }
+
+      socket.on("game-over", data => {
+        console.log("Game over received. Rendering...");
+        document.getElementById("next-question").style.display = "none";
+        document.getElementById("start-game").style.display = "block";
+      });
+    </script>
+  </body>
+</html>
