@@ -32,6 +32,12 @@
         renderMessage(data);
       });
 
+      socket.on("time-up", data => {
+        console.log("Time is up received.");
+        document.getElementById("answers").innerHTML =
+          "<h2>Look at the screen</h2>";
+      });
+
       socket.on("game-over", data => {
         console.log("Game over received. Rendering...");
         document.getElementById("answers").innerHTML = "<h2>Game Over</h2>";

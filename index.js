@@ -64,9 +64,8 @@ io.on("connection", socket => {
   socket.on("game-started", data => {
     console.log("Game was started by the organizer");
     game.host = socket.id;
-    io.to(game.pin).emit("next-question", questions[questionCounter]);
-    questionCounter++;
     game.players.filter(p => (p.score = 0));
+    sendNextQuestion(socket);
   });
 
   socket.on("play-next", data => {
@@ -74,8 +73,7 @@ io.on("connection", socket => {
 
     if (questionCounter <= questions.length - 1) {
       console.log("Next question was sent to the players");
-      io.to(game.pin).emit("next-question", questions[questionCounter]);
-      questionCounter++;
+      sendNextQuestion(socket);
     } else {
       console.log("Game over was sent to the players");
       io.to(game.pin).emit("game-over");
@@ -103,3 +101,14 @@ io.on("connection", socket => {
 });
 
 server.listen(3000);
+
+function sendNextQuestion(socket) {
+  io.to(game.pin).emit("next-question", questions[questionCounter]);
+
+  setTimeout(() => {
+    io.to(game.pin).emit("time-up");
+    console.log("Time is up sent");
+  }, 10000);
+
+  questionCounter++;
+}
