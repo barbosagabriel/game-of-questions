@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Game of Questions</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="css/index.css" />
+    <link
+      href="https://fonts.googleapis.com/css?family=Raleway"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
+  </head>
+  <body>
+    <div id="container">
+      <h1 id="title">Join a Game</h1>
+      <form action="#">
+        <div class="form-field">
+          <label id="label">Display Name</label>
+          <input id="username" type="text" name="username" autofocus />
+        </div>
+        <br />
+        <div class="form-field">
+          <label id="label">Game Pin</label>
+          <input id="pin" type="number" name="pin" />
+        </div>
+        <br />
+        <div class="form-field">
+          <button type="button" id="btn-join" class="btn" onclick="joinRoom()">
+            Join
+          </button>
+        </div>
+      </form>
+      <br />
+      <center>
+        <a href="/create-room.html" id="host">Click here to create a room.</a>
+      </center>
+    </div>
+    <script type="text/javascript">
+      var socket = io("http://localhost:3000");
+
+      function joinRoom() {
+        var pin = document.getElementById("pin").value;
+        var username = document.getElementById("username").value;
+        socket.emit("player-join", { pin: pin, username: username });
+
+        document.getElementById("container").innerHTML =
+          '<h1 id = "title1">Waiting on host to start game</h1>' +
+          '<h3 id = "title2">Do you see your name on the screen?</h3>' +
+          '<div class="loader"></div><br/>';
+      }
+
+      function renderMessage(question) {
+        document.getElementById("container").innerHTML =
+          `<button onclick="answerSubmitted(1)" class="answer" id="answer1">${question.choice1}</button>` +
+          `<button onclick="answerSubmitted(2)" class="answer" id="answer2">${question.choice2}</button><br>` +
+          `<button onclick="answerSubmitted(3)" class="answer" id="answer3">${question.choice3}</button>` +
+          `<button onclick="answerSubmitted(4)" class="answer" id="answer4">${question.choice4}</button>`;
+      }
+
+      function answerSubmitted(option) {
+        socket.emit("question-answered", { answer: option });
+        document.getElementById("container").innerHTML =
+          "<h1>Answer submitted! Waiting other players...</h1>";
+      }
+
+      socket.on("next-question", data => {
+        console.log("Next question received. Rendering...");
+        renderMessage(data);
+      });
+
+      socket.on("time-up", data => {
+        console.log("Time is up received.");
+        document.getElementById("container").innerHTML =
+          "<h1>Time's up! Look at the screen</h1>";
+      });
+
+      socket.on("game-over", data => {
+        console.log("Game over received. Rendering...");
+        document.getElementById("container").innerHTML = "<h1>Game Over</h1>";
+      });
+
+      socket.on("host-disconnected", () => {
+        console.log("Host disconnected received. Rendering...");
+        document.getElementById("container").innerHTML =
+          "<h1>The organizer is offline. Game over</h1>";
+      });
+    </script>
+  </body>
+</html>

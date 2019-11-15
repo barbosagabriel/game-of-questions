@@ -1,3 +1,4 @@
+const env = require("dotenv").config();
 const express = require("express");
 const path = require("path");
 
@@ -24,7 +25,7 @@ app.use("/create", (req, res) => {
   res.render("create-room.html");
 });
 
-const timeToAnswer = 10000;
+const timeToAnswer = process.env.TIME_TO_ANSWER;
 const questions = [
   {
     question: "Lorem Ipsum 1",
@@ -159,7 +160,7 @@ io.on("connection", socket => {
 
 //When a host or player leaves the site
 
-server.listen(3000);
+server.listen(process.env.PORT);
 
 function sendNextQuestion(socket, game) {
   io.to(game.pin).emit("next-question", questions[questionCounter]);
