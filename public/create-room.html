@@ -10,6 +10,7 @@
   </head>
   <body>
     <div id="before-play">
+      <div id="main"></div>
       <h1 id="game-pin"></h1>
       <ul id="connected-players"></ul>
       <button
@@ -29,6 +30,7 @@
 
     <script type="text/javascript">
       var socket = io("https://game-of-questions.herokuapp.com/");
+      // var socket = io("http://localhost:3000");
 
       socket.emit("room-created");
 
@@ -45,15 +47,37 @@
         document.getElementById("connected-players").appendChild(node);
       });
 
+      socket.on("next-question", ({ question }) => {
+        document.getElementById("game-pin").style.display = "none";
+        document.getElementById("main").innerHTML = `<h1>${question}</h1>`;
+      });
+
       socket.on("time-up", () => {
         document.getElementById("next-question").style.display = "block";
+      });
+
+      socket.on("partial-results", data => {
+        console.log("Partial results received. Rendering...");
+        document.getElementById("game-pin").style.display = "none";
+
+        document.getElementById("main").innerHTML =
+          "<h1>Partial Results</h1><br>";
+        data.players.forEach(player => {
+          var node = document.createElement("h1");
+          var textnode = document.createTextNode(
+            `${player.username}: ${player.score}`
+          );
+          node.appendChild(textnode);
+          document.getElementById("main").appendChild(node);
+        });
       });
 
       socket.on("results", data => {
         console.log("Game over received. Rendering...");
         document.getElementById("before-play").style.display = "none";
 
-        document.getElementById("results").innerHTML = "<h1>Results</h1><br>";
+        document.getElementById("results").innerHTML =
+          "<h1>Final Results</h1><br>";
         data.players.forEach(player => {
           var node = document.createElement("h1");
           var textnode = document.createTextNode(
@@ -83,6 +107,7 @@
       function startGame() {
         socket.emit("game-started");
         document.getElementById("start-game").style.display = "none";
+        document.getElementById("connected-players").style.display = "none";
         document.getElementById("next-question").style.display = "block";
       }
 

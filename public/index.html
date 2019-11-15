@@ -37,6 +37,7 @@
     </div>
     <script type="text/javascript">
       var socket = io("https://game-of-questions.herokuapp.com/");
+      // var socket = io("http://localhost:3000");
 
       function joinRoom() {
         var pin = document.getElementById("pin").value;
@@ -51,10 +52,10 @@
 
       function renderMessage(question) {
         document.getElementById("container").innerHTML =
-          `<button onclick="answerSubmitted(1)" class="answer" id="answer1">${question.choice1}</button>` +
-          `<button onclick="answerSubmitted(2)" class="answer" id="answer2">${question.choice2}</button><br>` +
-          `<button onclick="answerSubmitted(3)" class="answer" id="answer3">${question.choice3}</button>` +
-          `<button onclick="answerSubmitted(4)" class="answer" id="answer4">${question.choice4}</button>`;
+          `<button onclick="answerSubmitted(1)" class="btn" id="answer1">${question.choice1}</button>` +
+          `<button onclick="answerSubmitted(2)" class="btn" id="answer2">${question.choice2}</button>` +
+          `<button onclick="answerSubmitted(3)" class="btn" id="answer3">${question.choice3}</button>` +
+          `<button onclick="answerSubmitted(4)" class="btn" id="answer4">${question.choice4}</button>`;
       }
 
       function answerSubmitted(option) {

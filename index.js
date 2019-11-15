@@ -28,7 +28,7 @@ app.use("/create", (req, res) => {
 const timeToAnswer = process.env.TIME_TO_ANSWER;
 const questions = [
   {
-    question: "Lorem Ipsum 1",
+    question: "Lorem Ipsum 1?",
     choice1: "1",
     choice2: "2",
     choice3: "3",
@@ -36,7 +36,7 @@ const questions = [
     correct: "1"
   },
   {
-    question: "Lorem Ipsum 2",
+    question: "Lorem Ipsum 2?",
     choice1: "1",
     choice2: "2",
     choice3: "3",
@@ -44,7 +44,7 @@ const questions = [
     correct: "1"
   },
   {
-    question: "Lorem Ipsum 3",
+    question: "Lorem Ipsum 3?",
     choice1: "1",
     choice2: "2",
     choice3: "3",
@@ -168,6 +168,7 @@ function sendNextQuestion(socket, game) {
   console.log(game.timeToAnswer);
   setTimeout(() => {
     io.to(game.pin).emit("time-up");
+    io.to(game.pin).emit("partial-results", { players: game.players });
     game.setState(GameState.PROCESSING_NEXT_QUESTION);
     console.log("Time is up sent");
   }, game.timeToAnswer);

@@ -96,12 +96,12 @@ h1 {
 }
 
 h1,
-h2 {
+h3 {
   text-align: center;
   color: white;
   font-family: "Raleway", sans-serif;
 }
-h2 {
+h3 {
   font-size: 15px;
 }
 
@@ -140,7 +140,9 @@ h2 {
 
 .answer {
   width: 45%;
-  height: 20%;
+  height: 200px;
+  margin: 5px;
+  font-size: 20px;
 }
 
 li {
