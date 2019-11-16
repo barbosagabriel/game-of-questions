@@ -558,7 +558,6 @@ io.on("connection", socket => {
       console.log("Game over was sent to the players");
       io.to(game.pin).emit("game-over");
       io.to(game.pin).emit("results", { players: game.players });
-      questionCounter = 0;
     }
 
     console.log(game.players);
@@ -625,6 +624,4 @@ function sendNextQuestion(game) {
     game.setState(GameState.PROCESSING_NEXT_QUESTION);
     console.log("Time is up sent");
   }, game.timeToAnswer);
-
-  questionCounter++;
 }
