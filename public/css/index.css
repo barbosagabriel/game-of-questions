@@ -158,3 +158,10 @@ li {
   font-size: 20px;
   text-align: center;
 }
+
+#main {
+  display: block;
+  text-align: center;
+  width: 65%;
+  margin-left: 15%;
+}

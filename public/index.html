@@ -50,12 +50,12 @@
           '<div class="loader"></div><br/>';
       }
 
-      function renderMessage(question) {
+      function renderMessage({ answers }) {
         document.getElementById("container").innerHTML =
-          `<button onclick="answerSubmitted(1)" class="btn" id="answer1">${question.choice1}</button>` +
-          `<button onclick="answerSubmitted(2)" class="btn" id="answer2">${question.choice2}</button>` +
-          `<button onclick="answerSubmitted(3)" class="btn" id="answer3">${question.choice3}</button>` +
-          `<button onclick="answerSubmitted(4)" class="btn" id="answer4">${question.choice4}</button>`;
+          `<button onclick="answerSubmitted('${answers[0]}')" class="btn" id="answer1">${answers[0]}</button>` +
+          `<button onclick="answerSubmitted('${answers[1]}')" class="btn" id="answer2">${answers[1]}</button>` +
+          `<button onclick="answerSubmitted('${answers[2]}')" class="btn" id="answer3">${answers[2]}</button>` +
+          `<button onclick="answerSubmitted('${answers[3]}')" class="btn" id="answer4">${answers[3]}</button>`;
       }
 
       function answerSubmitted(option) {
