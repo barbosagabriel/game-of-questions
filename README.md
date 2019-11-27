@@ -9,7 +9,7 @@ Live demo available [here](https://game-of-questions.herokuapp.com/).
 - [Socket.io](https://socket.io/)
 - [Open Trivia Database](https://opentdb.com/)
 
-### Installation
+## Installation
 
 Requirements 
 - [Node.js](https://nodejs.org/)
