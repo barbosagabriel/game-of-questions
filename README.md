@@ -14,7 +14,8 @@ Live demo available [here](https://game-of-questions.herokuapp.com/).
 Requirements 
 - [Node.js](https://nodejs.org/)
 
-Install the dependencies and start the server.
+1. Rename the `.envexample` file to `.env`
+2. Install the dependencies and start the server
 
 ```sh
 $ cd game-of-questions
@@ -22,7 +23,7 @@ $ npm install
 $ npm start
 ```
 
-Navigate to `http://localhost:3000/`.
+3. Navigate to `http://localhost:3000/`.
 
 **Temporary**
 
