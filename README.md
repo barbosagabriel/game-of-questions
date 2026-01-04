@@ -7,7 +7,7 @@ Live demo available [here](https://game-of-questions.herokuapp.com/).
 ## Built with
 - [Node.js](https://nodejs.org/)
 - [Socket.io](https://socket.io/)
-- [Open Trivia Database](https://opentdb.com/)
+- [Trivia API](https://github.com/peterfritz/tryvia-api)
 
 ## Installation
 

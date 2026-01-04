@@ -5,10 +5,13 @@ const path = require("path");
 const GameState = require("./models/GameState");
 const Game = require("./models/Game");
 const Player = require("./models/Player");
+const fs = require('fs');
+const questionsFile = path.join(__dirname, 'questions.json');
 
 
+const http = require('http');
 const app = express();
-const server = require("http").createServer(app);
+const server = http.createServer(app);
 const io = require("socket.io")(server);
 
 const publicPath = path.join(__dirname, "public");
@@ -26,14 +29,6 @@ app.use("/create", (req, res) => {
   res.render("create-room.html");
 });
 
-// diagnostics endpoint: node version and fetch availability
-app.get('/version', (req, res) => {
-  try {
-    res.json({ node: process.version, env: process.env.NODE_ENV || null, fetchPresent: typeof fetch === 'function' });
-  } catch (err) {
-    res.status(500).json({ error: 'failed to read version', details: (err && err.stack) || String(err) });
-  }
-});
 
 var allPlayers = [];
 var games = [];
@@ -69,7 +64,11 @@ io.on("connection", socket => {
   });
 });
 
-server.listen(process.env.PORT || 3000);
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}`);
+  console.log('process.version:', process.version, 'env:', process.env.NODE_ENV || null, 'fetchPresent:', typeof fetch === 'function');
+});
 
 
 function decodeEntities(str) {
@@ -87,20 +86,23 @@ function decodeEntities(str) {
 }
 
 async function fetchQuestionsFromAPI(amount) {
-  const maxAttempts = 3;
+  // try primary remote provider first, then OpenTDB, then fallback to local questions
+  const maxAttempts = 2; // remote attempts: 1=primary, 2=opentdb
   const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const primaryUrl = `https://tryvia.ptr.red/api.php?amount=${amount}&type=multiple`;
+  const openTdbUrl = `https://opentdb.com/api.php?amount=${amount}&type=multiple`;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const url = `https://tryvia.ptr.red/api.php?amount=${amount}&type=multiple`;
+      const url = (attempt === 1) ? primaryUrl : openTdbUrl;
       const start = Date.now();
       console.log(`Fetching trivia from ${url} (attempt ${attempt})`);
       const res = await fetch(url);
       const elapsed = Date.now() - start;
-      console.log(`Fetch completed (attempt ${attempt}) status=${res && res.status} time=${elapsed}ms`);
+      console.log(`Fetch completed (attempt ${attempt}) url=${url} status=${res && res.status} time=${elapsed}ms`);
       if (!res || !res.ok) {
         let body = '<unavailable>';
         try { body = await res.text(); } catch (e) { body = '<failed to read body>'; }
-        console.error(`Trivia API responded with non-ok status ${res && res.status}; body:`, body);
+        console.error(`Trivia API responded with non-ok status ${res && res.status} for url=${url}; body:`, body);
         throw new Error('Trivia API fetch failed: ' + (res && res.status));
       }
       let json = null;
@@ -132,8 +134,41 @@ async function fetchQuestionsFromAPI(amount) {
     } catch (err) {
       console.error(`Trivia API attempt ${attempt} failed:`, err && err.stack ? err.stack : err);
       if (attempt < maxAttempts) await sleep(1000 * attempt);
-      else return [];
+      // otherwise loop will end and we'll fallback to local below
     }
+  }
+  // if we reach here, both remote attempts failed -> try local fallback
+  console.error('Remote trivia providers failed; falling back to local questions.json');
+  try {
+    const local = await loadLocalQuestions(amount);
+    return local;
+  } catch (e) {
+    console.error('Failed to load local questions fallback:', e && e.stack ? e.stack : e);
+    return [];
+  }
+}
+
+async function loadLocalQuestions(amount) {
+  try {
+    const raw = await fs.promises.readFile(questionsFile, 'utf8');
+    const all = JSON.parse(raw);
+    if (!Array.isArray(all) || all.length === 0) return [];
+    // shuffle and take amount
+    const shuffled = all.slice();
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const picked = shuffled.slice(0, Math.min(amount, shuffled.length));
+    // ensure shape matches { question, correct_answer, incorrect_answers }
+    return picked.map(item => ({
+      question: item.question || item.q || '',
+      correct_answer: item.correct_answer || item.correct || '',
+      incorrect_answers: item.incorrect_answers || item.incorrect || item.incorrectAnswers || []
+    }));
+  } catch (err) {
+    console.error('Error reading local questions.json:', err && err.stack ? err.stack : err);
+    return [];
   }
 }
 
@@ -263,7 +298,7 @@ async function startGame(socket, data) {
       game.timeToAnswer = secs * 1000;
     }
   }
-  // fetch questions from OpenTDB and translate
+  // fetch questions from API
   game.questionPool = await fetchQuestionsFromAPI(amount);
   if (!game.questionPool || game.questionPool.length === 0) {
     io.to(game.pin).emit('load-error', { message: 'Failed to load questions from OpenTDB. Please try again.' });
