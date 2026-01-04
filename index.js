@@ -1,14 +1,11 @@
 const env = require("dotenv").config();
 const express = require("express");
-const fs = require("fs");
 const path = require("path");
 
 const GameState = require("./models/GameState");
 const Game = require("./models/Game");
 const Player = require("./models/Player");
 
-const filePath = "./questions.json";
-const questionsFile = fs.readFileSync(filePath);
 
 const app = express();
 const server = require("http").createServer(app);
@@ -31,7 +28,6 @@ app.use("/create", (req, res) => {
 
 var allPlayers = [];
 var games = [];
-var questions = JSON.parse(questionsFile);
 
 io.on("connection", socket => {
   socket.on("room-created", data => {
@@ -48,7 +44,8 @@ io.on("connection", socket => {
   });
 
   socket.on("game-started", data => {
-    startGame(socket);
+    console.log('game-started event received from', socket.id, 'payload:', data);
+    startGame(socket, data);
   });
 
   socket.on("play-next", () => {
@@ -66,12 +63,48 @@ io.on("connection", socket => {
 
 server.listen(process.env.PORT || 3000);
 
-function getRandomQuestion(invalidQuestions) {
-  var question = questions[Math.floor(Math.random() * questions.length)];
-  while (invalidQuestions.find(q => q.question == question.question)) {
-    question = questions[Math.floor(Math.random() * questions.length)];
+
+function decodeEntities(str) {
+  if (!str) return str;
+  return str
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&rsquo;/g, '’')
+    .replace(/&ldquo;/g, '“')
+    .replace(/&rdquo;/g, '”')
+    .replace(/&lsquo;/g, '‘')
+    .replace(/&eacute;/g, 'é')
+    .replace(/&uuml;/g, 'ü');
+}
+
+async function fetchQuestionsFromAPI(amount) {
+  const maxAttempts = 3;
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(`https://tryvia.ptr.red/api.php?amount=${amount}&type=multiple`);
+      console.log(`OpenTDB fetch attempt ${attempt} status:`, res.status);
+      if (!res.ok) throw new Error('OpenTDB fetch failed: ' + res.status);
+      const json = await res.json();
+      console.log('OpenTDB response:', json);
+      if (!json || typeof json.response_code === 'undefined') throw new Error('Invalid OpenTDB response');
+      if (json.response_code !== 0) throw new Error('OpenTDB returned response_code ' + json.response_code);
+      if (!json.results) return [];
+
+      const decoded = json.results.map(item => ({
+        question: decodeEntities(item.question),
+        correct_answer: decodeEntities(item.correct_answer),
+        incorrect_answers: item.incorrect_answers.map(a => decodeEntities(a))
+      }));
+
+      return decoded;
+    } catch (err) {
+      console.error(`OpenTDB attempt ${attempt} failed:`, err.message || err);
+      if (attempt < maxAttempts) await sleep(1000 * attempt);
+      else return [];
+    }
   }
-  return question;
 }
 
 function getGameByPlayerId(playerId) {
@@ -179,9 +212,10 @@ function sendNextQuestion(socket) {
   advanceToNextQuestion(game);
 }
 
-function startGame(socket) {
+async function startGame(socket, data) {
   var game = getGameByHostId(socket.id);
   if (!game) return;
+  console.log(`startGame: host ${socket.id} starting game for pin ${game.pin} with payload:`, data);
   game.players.forEach(p => {
     p.score = 0;
     p.correctAnswers = 0;
@@ -190,6 +224,22 @@ function startGame(socket) {
   // reset previous questions so restart uses same pin
   game.previousQuestions = [];
   game.currentQuestion = {};
+  // determine amount
+  const amount = (data && data.amount) ? Number(data.amount) : game.totalOfQuestions || 10;
+  game.totalOfQuestions = amount;
+  // determine timeToAnswer (data.timeToAnswer expected in seconds)
+  if (data && typeof data.timeToAnswer !== 'undefined') {
+    const secs = Number(data.timeToAnswer);
+    if (!isNaN(secs) && secs > 0) {
+      game.timeToAnswer = secs * 1000;
+    }
+  }
+  // fetch questions from OpenTDB and translate
+  game.questionPool = await fetchQuestionsFromAPI(amount);
+  if (!game.questionPool || game.questionPool.length === 0) {
+    io.to(game.pin).emit('load-error', { message: 'Failed to load questions from OpenTDB. Please try again.' });
+    return;
+  }
   game.setState(GameState.PROCESSING_NEXT_QUESTION);
   // Immediately send the first question
   emitNextQuestion(game);
@@ -233,7 +283,22 @@ function shuffle(a) {
 }
 
 function emitNextQuestion(game) {
-  game.currentQuestion = getRandomQuestion(game.previousQuestions);
+  // pull next question from the game's question pool
+  game.currentQuestion = (game.questionPool && game.questionPool.length) ? game.questionPool.shift() : null;
+  if (!game.currentQuestion) {
+    // no more questions available in pool
+    // If we've already shown as many as requested, end the game, otherwise notify and end gracefully
+    if (game.previousQuestions.length >= game.totalOfQuestions) {
+      advanceToNextQuestion(game);
+      return;
+    }
+    io.to(game.pin).emit('load-error', { message: 'No more questions available. Ending game.' });
+    // send results and end
+    const sorted = game.players.slice().sort((a, b) => b.score - a.score);
+    io.to(game.pin).emit('results', { players: sorted, pin: game.pin });
+    game.setState(GameState.GAME_OVER);
+    return;
+  }
 
   var answers = game.currentQuestion.incorrect_answers.slice();
   answers.push(game.currentQuestion.correct_answer);
@@ -249,6 +314,7 @@ function emitNextQuestion(game) {
     total: game.totalOfQuestions,
     timeToAnswer: game.timeToAnswer
   });
+  console.log(`emitNextQuestion: pin=${game.pin} timeToAnswer=${game.timeToAnswer}ms questionIndex=${game.previousQuestions.length + 1}`);
   game.setState(GameState.WAITING_ANSWERS);
 
   // set the timeout for answers

@@ -1,13 +1,10 @@
 TODO:
 1. Improve design for the app (use design prototype as reference)
-2. Let the organizer define the time to answer and number of questions per game
-3. Add background music and sound effects
-4. Add support for question categories, so the organizer can select the categories they want
-5. Use https:opentdb.com/ as question source
-6. Use LibreTranslate API to convert all questions to Portuguese (Brazil)
-7. Deploy the app to a public server so people can play
-8. Change the timer to show a progress bar instead of a countdown number
-9. Add animations when showing the correct answer and updating scores
-10.Let the players select a character/avatar when joining the game
-11.Use the avatar on the final rankings screen
-12. Change the score logic to give more points for faster answers - something like: right answer 10 points plus a bonus of time taken in seconds, faster answers get higher bonus ( display that to the users after each question )
+2. Add background music and sound effects
+3. Add support for question categories, so the organizer can select the categories they want
+4. Deploy the app to a public server so people can play
+5. Change the timer to show a progress bar instead of a countdown number
+6. Add animations when showing the correct answer and updating scores
+7.Let the players select a character/avatar when joining the game
+8.Use the avatar on the final rankings screen
+9. Change the score logic to give more points for faster answers - something like: right answer 10 points plus a bonus of time taken in seconds, faster answers get higher bonus ( display that to the users after each question )

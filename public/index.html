@@ -37,8 +37,11 @@
         <div id="host-panel" class="host-panel hidden">
           <div id="host-pin" class="pin"></div>
           <div style="margin-top:8px">
+            <label class="label">Número de perguntas</label>
+            <input id="host-amount" type="number" min="1" max="50" value="10" />
+            <label class="label">Tempo por pergunta (s)</label>
+            <input id="host-time" type="number" min="5" max="120" value="10" />
             <button id="host-start" class="btn" onclick="startGameHost()">Iniciar jogo</button>
-            <button id="host-next" class="btn" onclick="nextQuestionHost()" style="display:none">Próxima pergunta</button>
           </div>
         </div>
         <div style="margin-top:12px">
@@ -167,23 +170,20 @@
 
       // host controls
       function startGameHost() {
-        socket.emit('game-started');
+        var amountEl = document.getElementById('host-amount');
+        var amount = amountEl ? Number(amountEl.value) : 10;
+        var timeEl = document.getElementById('host-time');
+        var time = timeEl ? Number(timeEl.value) : 10;
+        socket.emit('game-started', { amount: amount, timeToAnswer: time });
         document.getElementById('host-start').style.display = 'none';
-        document.getElementById('host-next').style.display = 'inline-block';
-      }
-
-      function nextQuestionHost() {
-        socket.emit('play-next');
-        document.getElementById('host-next').style.display = 'none';
       }
 
       function restartSameGameHost() {
         if (!isHost) return;
-        socket.emit('game-started');
+        //socket.emit('game-started');
         document.getElementById('final').classList.add('hidden');
         document.getElementById('lobby').classList.remove('hidden');
-        document.getElementById('host-start').style.display = 'none';
-        document.getElementById('host-next').style.display = 'none';
+        document.getElementById('host-start').style.display = 'block';
       }
 
       function renderPlayers(players) {
@@ -234,6 +234,14 @@
         clearInterval(countdownInterval);
       });
 
+      socket.on('load-error', ({ message }) => {
+        // show friendly message and keep leave button visible
+        alert(message || 'Failed to load questions.');
+        // show lobby so host can try again or leave
+        document.getElementById('lobby').classList.remove('hidden');
+        var panel = document.getElementById('host-panel'); if (panel) panel.classList.remove('hidden');
+      });
+
       socket.on('reveal-answer', ({ correctAnswer }) => {
         clearInterval(countdownInterval);
         var els = document.querySelectorAll('.answer');
@@ -256,10 +264,6 @@
         if (!existing) {
           var div = document.createElement('div'); div.id = 'scores'; div.className = 'scores'; div.innerHTML = html; main.appendChild(div);
         } else { existing.innerHTML = html; }
-        // host can press next
-        if (isHost) {
-          document.getElementById('host-next').style.display = 'inline-block';
-        }
       });
 
       socket.on('results', data => {

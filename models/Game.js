@@ -12,6 +12,7 @@ class Game {
     this.totalOfQuestions = 10;
     this._answerTimer = null;
     this._autoNextTimer = null;
+    this.questionPool = [];
   }
 
   setState(newState) {
