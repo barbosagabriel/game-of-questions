@@ -1,11 +1,14 @@
 {
   "name": "game-of-questions",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "The game is a 'fastest finger' trivia game for multi-players",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "repository": {
     "type": "git",

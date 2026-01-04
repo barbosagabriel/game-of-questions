@@ -26,6 +26,15 @@ app.use("/create", (req, res) => {
   res.render("create-room.html");
 });
 
+// diagnostics endpoint: node version and fetch availability
+app.get('/version', (req, res) => {
+  try {
+    res.json({ node: process.version, env: process.env.NODE_ENV || null, fetchPresent: typeof fetch === 'function' });
+  } catch (err) {
+    res.status(500).json({ error: 'failed to read version', details: (err && err.stack) || String(err) });
+  }
+});
+
 var allPlayers = [];
 var games = [];
 
@@ -82,12 +91,35 @@ async function fetchQuestionsFromAPI(amount) {
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const res = await fetch(`https://tryvia.ptr.red/api.php?amount=${amount}&type=multiple`);
-      console.log(`Trivia API fetch attempt ${attempt} status:`, res.status);
-      if (!res.ok) throw new Error('Trivia API fetch failed: ' + res.status);
-      const json = await res.json();
-      if (!json || typeof json.response_code === 'undefined') throw new Error('Invalid Trivia API response');
-      if (json.response_code !== 0) throw new Error('Trivia API returned response_code ' + json.response_code);
+      const url = `https://tryvia.ptr.red/api.php?amount=${amount}&type=multiple`;
+      const start = Date.now();
+      console.log(`Fetching trivia from ${url} (attempt ${attempt})`);
+      const res = await fetch(url);
+      const elapsed = Date.now() - start;
+      console.log(`Fetch completed (attempt ${attempt}) status=${res && res.status} time=${elapsed}ms`);
+      if (!res || !res.ok) {
+        let body = '<unavailable>';
+        try { body = await res.text(); } catch (e) { body = '<failed to read body>'; }
+        console.error(`Trivia API responded with non-ok status ${res && res.status}; body:`, body);
+        throw new Error('Trivia API fetch failed: ' + (res && res.status));
+      }
+      let json = null;
+      try {
+        json = await res.json();
+      } catch (e) {
+        const txt = await res.text().catch(() => '<failed to read body>');
+        console.error('Failed to parse JSON from Trivia API. body=', txt, 'err=', e && e.stack ? e.stack : e);
+        throw e;
+      }
+      console.log('Trivia API JSON:', json);
+      if (!json || typeof json.response_code === 'undefined') {
+        console.error('Trivia API returned unexpected payload:', json);
+        throw new Error('Invalid Trivia API response structure');
+      }
+      if (json.response_code !== 0) {
+        console.error('Trivia API returned response_code != 0:', json.response_code, json);
+        throw new Error('Trivia API returned response_code ' + json.response_code);
+      }
       if (!json.results) return [];
 
       const decoded = json.results.map(item => ({
@@ -98,7 +130,7 @@ async function fetchQuestionsFromAPI(amount) {
 
       return decoded;
     } catch (err) {
-      console.error(`Trivia API attempt ${attempt} failed:`, err.message || err);
+      console.error(`Trivia API attempt ${attempt} failed:`, err && err.stack ? err.stack : err);
       if (attempt < maxAttempts) await sleep(1000 * attempt);
       else return [];
     }
