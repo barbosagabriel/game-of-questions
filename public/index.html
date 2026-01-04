@@ -80,9 +80,7 @@
           return;
         }
         socket.emit("player-join", { pin: pin, username: username });
-        document.getElementById("lobby").classList.remove("hidden");
-        // hide join form once joined
-        var jf = document.getElementById('join-section'); if (jf) jf.classList.add('hidden');
+        // wait for server confirmation (player-joined) before showing lobby
       }
 
       function createRoom() {
@@ -180,7 +178,6 @@
 
       function restartSameGameHost() {
         if (!isHost) return;
-        //socket.emit('game-started');
         document.getElementById('final').classList.add('hidden');
         document.getElementById('lobby').classList.remove('hidden');
         document.getElementById('host-start').style.display = 'block';
@@ -202,6 +199,15 @@
         // reveal lobby if not visible
         document.getElementById('lobby').classList.remove('hidden');
         var jf = document.getElementById('join-section'); if (jf) jf.classList.add('hidden');
+      });
+
+      socket.on('room-not-found', ({ pin }) => {
+        var createNew = confirm('Sala não encontrada. Deseja criar uma nova sala?');
+        if (createNew) {
+          createRoom();
+        } else {
+          var pinEl = document.getElementById('pin'); if (pinEl) pinEl.focus();
+        }
       });
 
       socket.on('room-pin', data => {
@@ -271,7 +277,7 @@
         document.getElementById('final').classList.remove('hidden');
         var el = document.getElementById('final');
         // render ranking with top3 icons
-        var html = '<h2>Final Ranking</h2><ol class="ranking">';
+        var html = '<h2>Resultado Final</h2><ol class="ranking">';
         data.players.forEach((p, i) => {
           var icon = '';
           if (i === 0) icon = ' 🏆';

@@ -44,7 +44,6 @@ io.on("connection", socket => {
   });
 
   socket.on("game-started", data => {
-    console.log('game-started event received from', socket.id, 'payload:', data);
     startGame(socket, data);
   });
 
@@ -84,12 +83,11 @@ async function fetchQuestionsFromAPI(amount) {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const res = await fetch(`https://tryvia.ptr.red/api.php?amount=${amount}&type=multiple`);
-      console.log(`OpenTDB fetch attempt ${attempt} status:`, res.status);
-      if (!res.ok) throw new Error('OpenTDB fetch failed: ' + res.status);
+      console.log(`Trivia API fetch attempt ${attempt} status:`, res.status);
+      if (!res.ok) throw new Error('Trivia API fetch failed: ' + res.status);
       const json = await res.json();
-      console.log('OpenTDB response:', json);
-      if (!json || typeof json.response_code === 'undefined') throw new Error('Invalid OpenTDB response');
-      if (json.response_code !== 0) throw new Error('OpenTDB returned response_code ' + json.response_code);
+      if (!json || typeof json.response_code === 'undefined') throw new Error('Invalid Trivia API response');
+      if (json.response_code !== 0) throw new Error('Trivia API returned response_code ' + json.response_code);
       if (!json.results) return [];
 
       const decoded = json.results.map(item => ({
@@ -100,7 +98,7 @@ async function fetchQuestionsFromAPI(amount) {
 
       return decoded;
     } catch (err) {
-      console.error(`OpenTDB attempt ${attempt} failed:`, err.message || err);
+      console.error(`Trivia API attempt ${attempt} failed:`, err.message || err);
       if (attempt < maxAttempts) await sleep(1000 * attempt);
       else return [];
     }
@@ -215,7 +213,6 @@ function sendNextQuestion(socket) {
 async function startGame(socket, data) {
   var game = getGameByHostId(socket.id);
   if (!game) return;
-  console.log(`startGame: host ${socket.id} starting game for pin ${game.pin} with payload:`, data);
   game.players.forEach(p => {
     p.score = 0;
     p.correctAnswers = 0;
@@ -248,7 +245,7 @@ async function startGame(socket, data) {
 function addPlayerToRoom(pin, socket, username) {
   var game = getGameByPin(pin);
   if (!game) {
-    socket.emit("error", { message: "Room not found" });
+    socket.emit('room-not-found', { pin: pin });
     return;
   }
   socket.join(pin);
@@ -314,7 +311,6 @@ function emitNextQuestion(game) {
     total: game.totalOfQuestions,
     timeToAnswer: game.timeToAnswer
   });
-  console.log(`emitNextQuestion: pin=${game.pin} timeToAnswer=${game.timeToAnswer}ms questionIndex=${game.previousQuestions.length + 1}`);
   game.setState(GameState.WAITING_ANSWERS);
 
   // set the timeout for answers
