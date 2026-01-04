@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Game of Questions</title>
+    <title>Quiz Flash</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Mobile-first realtime trivia client" />
     <link rel="stylesheet" href="css/index.css" />
@@ -81,6 +81,42 @@
       var currentPin = null;
       var countdownInterval = null;
       var timerRaf = null;
+
+      // simple WebAudio sounds for interactions
+      function playTone(type) {
+        try {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          const ctx = new Ctx();
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.connect(g); g.connect(ctx.destination);
+          if (type === 'click') { o.type = 'square'; o.frequency.value = 880; g.gain.value = 0.03; }
+          else if (type === 'correct') { o.type = 'sine'; o.frequency.value = 880; g.gain.value = 0.06; }
+          else if (type === 'wrong') { o.type = 'sawtooth'; o.frequency.value = 220; g.gain.value = 0.06; }
+          else { o.type = 'sine'; o.frequency.value = 440; g.gain.value = 0.03; }
+          o.start();
+          setTimeout(() => { try { o.stop(); ctx.close(); } catch (e) {} }, 220);
+        } catch (e) { /* ignore */ }
+      }
+
+      // confetti overlay using emoji
+      function showConfetti() {
+        const container = document.getElementById('confetti');
+        if (!container) return;
+        container.innerHTML = '';
+        const emojis = ['🎉','✨','🎊','⭐️','💥'];
+        for (let i=0;i<28;i++) {
+          const s = document.createElement('span');
+          s.innerText = emojis[Math.floor(Math.random()*emojis.length)];
+          s.style.left = (Math.random()*100)+'%';
+          s.style.top = (-Math.random()*10-5)+'vh';
+          s.style.fontSize = (12 + Math.random()*18) + 'px';
+          s.style.animationDelay = (Math.random()*300)+'ms';
+          container.appendChild(s);
+        }
+        // clear after animation
+        setTimeout(()=>{ container.innerHTML = ''; }, 1800);
+      }
 
       function clearCountdown() {
         if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
@@ -164,7 +200,7 @@
         document.getElementById("final").classList.add("hidden");
         document.getElementById("question").classList.remove("hidden");
         document.getElementById("qtext").innerText = data.question;
-        document.getElementById("qmeta").innerText = `Question ${data.questionIndex}/${data.total}`;
+        document.getElementById("qmeta").innerText = `Pergunta ${data.questionIndex}/${data.total}`;
         var answersEl = document.getElementById("answers");
         answersEl.innerHTML = "";
         data.answers.forEach((a, i) => {
@@ -319,17 +355,22 @@
       });
 
       socket.on('reveal-answer', ({ correctAnswer }) => {
-        clearInterval(countdownInterval);
+        clearCountdown();
         var els = document.querySelectorAll('.answer');
+        var someoneWasCorrect = false;
         els.forEach(b => {
           b.disabled = true;
           if (b.innerText === correctAnswer) {
             b.classList.add('correct');
+            // if this was selected by someone in this client
+            if (b.classList.contains('selected')) someoneWasCorrect = true;
           }
           if (b.classList.contains('selected') && b.innerText !== correctAnswer) {
             b.classList.add('wrong');
           }
         });
+        if (someoneWasCorrect) { playTone('correct'); showConfetti(); }
+        else { playTone('wrong'); }
       });
 
       socket.on('partial-results', data => {
@@ -346,22 +387,26 @@
         document.getElementById('question').classList.add('hidden');
         document.getElementById('final').classList.remove('hidden');
         var el = document.getElementById('final');
-        // render ranking with top3 icons
-        var html = '<h2>Resultado Final</h2><ol class="ranking">';
+        // improved final ranking layout inspired by design
+        var winner = data.players[0] || { username: 'Jogador', score: 0 };
+        var html = '<div class="final-panel">';
+        html += '<div class="trophy">🏆</div>';
+        html += `<h2>Parabéns, ${winner.username}!</h2>`;
+        html += '<ol class="ranking">';
         data.players.forEach((p, i) => {
-          var icon = '';
-          if (i === 0) icon = ' 🏆';
-          else if (i === 1) icon = ' 🥈';
-          else if (i === 2) icon = ' 🥉';
-          html += `<li class="result">${p.username}: ${p.score}${icon}</li>`;
+          var badgeClass = i === 0 ? 'badge-1' : (i === 1 ? 'badge-2' : (i === 2 ? 'badge-3' : 'badge-plain'));
+          var pos = `${i+1}º`;
+          html += `<li class="result"><div class="left"><div class="badge ${badgeClass}">${pos}</div><div class="player-name">${p.username}</div></div><div class="points">${p.score} pts</div></li>`;
         });
         html += '</ol>';
-        if (isHost) {
-          html += '<div style="margin-top:12px"><button class="btn" onclick="restartSameGameHost()">Reiniciar jogo</button><button class="btn" onclick="leaveRoom()">Sair</button></div>';
-        } else {
-          html += '<div style="margin-top:12px"><button class="btn" onclick="leaveRoom()">Sair</button></div>';
-        }
+        html += '<div class="final-actions">';
+        if (isHost) html += '<button class="btn" onclick="restartSameGameHost()">Reiniciar jogo</button>';
+        html += '<button class="btn" onclick="leaveRoom()">Sair</button>';
+        html += '</div>';
+        html += '</div>';
         el.innerHTML = html;
+        // small confetti celebration for everyone
+        showConfetti();
       });
 
       socket.on('host-disconnected', () => {

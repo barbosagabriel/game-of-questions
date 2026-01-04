@@ -160,3 +160,54 @@ li {
   margin: 8px 0 10px 0;
   letter-spacing: 2px;
 }
+
+/* More playful gradients and button styling */
+.host-panel { background: linear-gradient(135deg,#ff8a65 0%,#ffb74d 100%); padding:12px; border-radius:10px }
+.pin { color: white; font-weight:700; font-size:26px }
+
+.btn { background: linear-gradient(180deg,#27ae60,#1e8449); box-shadow: 0 6px 18px rgba(0,0,0,0.25); transition: transform .12s ease, box-shadow .12s ease; }
+.btn:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,0.28); }
+.btn:active { transform: translateY(0); }
+
+/* Answers style */
+.answer { background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); box-shadow: 0 6px 12px rgba(0,0,0,0.12); transition: transform .12s ease, box-shadow .12s ease, background .18s ease; }
+.answer:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(0,0,0,0.15); }
+.answer.correct { background: linear-gradient(90deg,#7bed9f,#2ecc71); box-shadow: 0 10px 30px rgba(46,204,113,0.25); transform: scale(1.02); }
+.answer.wrong { background: linear-gradient(90deg,#ff7b7b,#e74c3c); box-shadow: 0 10px 30px rgba(231,76,60,0.25); transform: scale(1.02); }
+
+/* small pop animation for reveal */
+@keyframes pop {
+  0% { transform: scale(0.96); opacity: 0.6 }
+  60% { transform: scale(1.03); opacity: 1 }
+  100% { transform: scale(1); }
+}
+.answer.correct, .answer.wrong { animation: pop .36s ease; }
+
+/* Confetti overlay */
+.confetti { position: absolute; left:0; right:0; top:0; bottom:0; pointer-events:none; overflow:visible }
+.confetti span { position:absolute; font-size:20px; opacity:0; animation:fall 1600ms linear forwards; }
+@keyframes fall {
+  0% { transform: translateY(-10vh) rotate(0deg); opacity:1 }
+  100% { transform: translateY(110vh) rotate(540deg); opacity:0 }
+}
+
+/* subtle glow on the question panel */
+#question { background: linear-gradient(180deg,#5b2c6f,#8e44ad); padding:18px; border-radius:12px; box-shadow: 0 12px 40px rgba(0,0,0,0.35); }
+
+/* bigger, friendlier header */
+h2#qtext { color: #fff; font-size:20px }
+
+/* Final ranking styles */
+.final-panel { text-align: center; padding: 20px; color: white }
+.final-panel .trophy { font-size: 48px; margin-bottom: 8px }
+.final-panel h2 { font-size: 24px; margin: 8px 0 16px 0 }
+.ranking { list-style:none; padding:0; margin:0 auto; max-width:360px }
+.ranking li.result { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; margin:10px 0; border-radius:10px; background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
+.ranking .left { display:flex; align-items:center; gap:12px }
+.badge { width:44px; height:44px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; font-weight:700; color:white; font-size:18px }
+.badge-1 { background: linear-gradient(90deg,#ffb648,#ffa31a) }
+.badge-2 { background: linear-gradient(90deg,#6fb9ff,#2b9cff) }
+.badge-3 { background: linear-gradient(90deg,#ff8b8b,#e74c3c) }
+.player-name { font-size:18px; font-weight:700 }
+.points { font-size:18px; color: #fff }
+.final-actions { margin-top:16px; display:flex; gap:12px; justify-content:center }
