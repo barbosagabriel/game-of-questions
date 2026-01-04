@@ -22,102 +22,59 @@
 
 body {
   font-family: "Raleway", sans-serif;
-  -webkit-animation: bgcolor 20s infinite;
-  animation: bgcolor 10s infinite;
-  -webkit-animation-direction: alternate;
-  animation-direction: alternate;
+  min-height: 100vh;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg,#45a3e5 0%,#864cbf 100%);
 }
 
 h1 {
-  font-family: "Raleway", sans-serif;
-  text-align: center;
-  font-size: 50px;
+  font-size: 28px;
   color: white;
+  text-align: center;
+  margin: 12px 0;
 }
 
-#username {
-  width: 50%;
-  padding: 12px 0px;
-  margin: 8px 0;
-  display: block;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+main#container {
+  width: 100%;
+  max-width: 520px;
+  padding: 18px;
   box-sizing: border-box;
-  margin-right: auto;
-  margin-left: auto;
-  font-size: 20px;
-  text-align: center;
 }
 
-#pin {
-  width: 50%;
-  padding: 12px 0px;
-  margin: 8px 0;
-  display: block;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+.field { margin: 10px 0; }
+.label { display:block; color: white; margin-bottom:6px; font-size:14px; }
+
+input[type="text"], input[type="number"] {
+  width: 100%;
+  padding: 12px;
+  font-size: 18px;
+  border-radius: 8px;
+  border: none;
   box-sizing: border-box;
-  margin-right: auto;
-  margin-left: auto;
-  font-size: 20px;
-  text-align: center;
 }
 
-#label {
-  display: block;
-  text-align: center;
-  font-size: 25px;
-  font-family: "Raleway", sans-serif;
-  color: white;
-}
+#host { display:block; text-align:center; color: #fff; margin-top:10px; text-decoration:underline }
 
-#host {
-  color: white;
-  text-decoration: none;
-}
-#host:hover {
-  text-decoration: underline;
-}
 .btn {
-  width: 50%;
-  background-color: #4caf50;
+  width: 100%;
+  background-color: #222;
   color: white;
-  padding: 14px 20px;
+  padding: 14px 16px;
   margin: 8px 0;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
-  display: block;
-  margin-right: auto;
-  margin-left: auto;
-  font-size: 20px;
-  background-color: #3a3b3a;
-  font-family: "Raleway", sans-serif;
+  font-size: 18px;
 }
 
-h1,
-h3 {
-  text-align: center;
-  color: white;
-  font-family: "Raleway", sans-serif;
-}
-h3 {
-  font-size: 15px;
-}
+h2 { color: white; font-size: 20px; }
 
-.loader {
-  display: block;
-  height: 50%;
-  margin-left: auto;
-  margin-right: auto;
-  border: 8px solid #f3f3f3;
-  border-radius: 50%;
-  border-top: 8px solid #3a3b3a;
-  width: 40px;
-  height: 40px;
-  -webkit-animation: spin 1.5s linear infinite; /* Safari */
-  animation: spin 1.5s linear infinite;
-}
+.hidden { display: none; }
+
+.loader { width:36px; height:36px; border:6px solid rgba(255,255,255,0.2); border-top-color: #fff; border-radius:50%; animation:spin 1s linear infinite; margin: 20px auto }
 
 /* Safari */
 @-webkit-keyframes spin {
@@ -139,11 +96,25 @@ h3 {
 }
 
 .answer {
-  width: 45%;
-  height: 200px;
-  margin: 5px;
-  font-size: 20px;
+  width: 100%;
+  padding: 14px;
+  margin: 8px 0;
+  font-size: 18px;
+  border-radius: 8px;
+  border: none;
+  text-align: left;
 }
+
+.answer.selected { background: rgba(255,255,255,0.12); }
+
+.answer.correct { background: #2ecc71; color: white }
+.answer.wrong { background: #e74c3c; color: white }
+
+.answers { margin-top:12px }
+.qmeta { color: white; opacity: 0.9; margin-bottom:8px }
+.countdown { color: white; margin-top:8px }
+.scores { margin-top:12px; color: white }
+.result { color: white; margin:6px 0 }
 
 li {
   width: 50%;
@@ -159,9 +130,14 @@ li {
   text-align: center;
 }
 
-#main {
-  display: block;
+/* organizer pages */
+#main { color: white }
+
+.host-pin-top {
+  font-size: 40px;
+  font-weight: 700;
+  color: white;
   text-align: center;
-  width: 65%;
-  margin-left: 15%;
+  margin: 8px 0 10px 0;
+  letter-spacing: 2px;
 }
