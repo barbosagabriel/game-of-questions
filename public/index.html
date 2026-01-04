@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="css/index.css" />
     <link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet" />
     <script src="/socket.io/socket.io.js"></script>
+    <script src="/preloaded-categories.js"></script>
   </head>
   <body>
     <main id="container">
@@ -37,6 +38,17 @@
         <div id="host-panel" class="host-panel hidden">
           <div id="host-pin" class="pin"></div>
           <div style="margin-top:8px">
+            <label class="label">Categoria</label>
+            <select id="host-category">
+              <option value="">Todas</option>
+            </select>
+            <label class="label">Dificuldade</label>
+            <select id="host-difficulty">
+              <option value="">Todas</option>
+              <option value="easy">Fácil</option>
+              <option value="medium">Média</option>
+              <option value="hard">Difícil</option>
+            </select>
             <label class="label">Número de perguntas</label>
             <input id="host-amount" type="number" min="1" max="50" value="10" />
             <label class="label">Tempo por pergunta (s)</label>
@@ -53,7 +65,12 @@
         <div id="qmeta" class="qmeta"></div>
         <h2 id="qtext"></h2>
         <div id="answers" class="answers"></div>
-        <div id="countdown" class="countdown"></div>
+        <div id="countdown" class="countdown">
+          <div class="timer">
+            <div class="timer-bar"><div id="timer-fill" class="timer-fill"></div></div>
+            <div id="countdown-number" class="countdown-number"></div>
+          </div>
+        </div>
       </section>
 
       <section id="final" class="hidden"></section>
@@ -63,6 +80,50 @@
       var isHost = false;
       var currentPin = null;
       var countdownInterval = null;
+      var timerRaf = null;
+
+      function clearCountdown() {
+        if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+        if (timerRaf) { cancelAnimationFrame(timerRaf); timerRaf = null; }
+        var numEl = document.getElementById('countdown-number'); if (numEl) numEl.innerText = '';
+        var fill = document.getElementById('timer-fill'); if (fill) fill.style.width = '0%';
+      }
+      // hard-coded categories list (from categories.json)
+      const CATEGORIES = [
+        { id: 9, name: 'Conhecimentos gerais' },
+        { id: 10, name: 'Entretenimento: Livros' },
+        { id: 11, name: 'Entretenimento: Filmes' },
+        { id: 12, name: 'Entretenimento: Músicas' },
+        { id: 13, name: 'Entretenimento: Musicais e teatro' },
+        { id: 14, name: 'Entretenimento: Televisão' },
+        { id: 15, name: 'Entretenimento: Videogame' },
+        { id: 16, name: 'Entretenimento: Jogos de tabuleiro' },
+        { id: 17, name: 'Ciência e natureza' },
+        { id: 18, name: 'Ciência: Computadores' },
+        { id: 19, name: 'Ciência: Matemática' },
+        { id: 20, name: 'Mitologia' },
+        { id: 21, name: 'Esportes' },
+        { id: 22, name: 'Geografia' },
+        { id: 23, name: 'História' },
+        { id: 24, name: 'Política' },
+        { id: 25, name: 'Arte' },
+        { id: 26, name: 'Celebridades' },
+        { id: 27, name: 'Animais' },
+        { id: 28, name: 'Veículos' },
+        { id: 29, name: 'Entretenimento: Histórias em quadrinhos' },
+        { id: 30, name: 'Ciência: Dispositivos' },
+        { id: 31, name: 'Entretenimento: Anime e Manga' },
+        { id: 32, name: 'Entretenimento: Cartoon e animações' }
+      ];
+
+      (function populateCategories() {
+        const sel = document.getElementById('host-category');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">Todas</option>';
+        CATEGORIES.forEach(c => {
+          const o = document.createElement('option'); o.value = c.id; o.innerText = c.name; sel.appendChild(o);
+        });
+      })();
 
       function joinRoom() {
         var pinEl = document.getElementById("pin");
@@ -125,19 +186,24 @@
       }
 
       function startCountdown(ms) {
-        clearInterval(countdownInterval);
-        var remaining = Math.ceil(ms/1000);
-        var el = document.getElementById('countdown');
-        el.innerText = `Time: ${remaining}s`;
-        countdownInterval = setInterval(() => {
-          remaining -= 1;
-          if (remaining <= 0) {
-            clearInterval(countdownInterval);
-            el.innerText = 'Time up';
-          } else {
-            el.innerText = `Time: ${remaining}s`;
+        clearCountdown();
+        var start = performance.now();
+        var end = start + ms;
+        var numEl = document.getElementById('countdown-number');
+        var fill = document.getElementById('timer-fill');
+
+        function tick(now) {
+          var remaining = Math.max(0, end - now);
+          var secs = Math.ceil(remaining / 1000);
+          if (numEl) numEl.innerText = remaining > 0 ? `Time: ${secs}s` : 'Time up';
+          if (fill) {
+            var pct = Math.min(100, Math.max(0, ((now - start) / ms) * 100));
+            fill.style.width = pct + '%';
           }
-        }, 1000);
+          if (remaining <= 0) { timerRaf = null; return; }
+          timerRaf = requestAnimationFrame(tick);
+        }
+        timerRaf = requestAnimationFrame(tick);
       }
 
       function leaveRoom() {
@@ -172,7 +238,11 @@
         var amount = amountEl ? Number(amountEl.value) : 10;
         var timeEl = document.getElementById('host-time');
         var time = timeEl ? Number(timeEl.value) : 10;
-        socket.emit('game-started', { amount: amount, timeToAnswer: time });
+        var catEl = document.getElementById('host-category');
+        var diffEl = document.getElementById('host-difficulty');
+        var category = catEl ? catEl.value : '';
+        var difficulty = diffEl ? diffEl.value : '';
+        socket.emit('game-started', { amount: amount, timeToAnswer: time, category: category, difficulty: difficulty });
         document.getElementById('host-start').style.display = 'none';
       }
 

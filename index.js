@@ -7,6 +7,7 @@ const Game = require("./models/Game");
 const Player = require("./models/Player");
 const fs = require('fs');
 const questionsFile = path.join(__dirname, 'questions.json');
+const categoriesFile = path.join(__dirname, 'categories.json');
 
 
 const http = require('http');
@@ -21,12 +22,51 @@ app.set("views", publicPath);
 app.engine("html", require("ejs").renderFile);
 app.set("view engine", "html");
 
-app.use("/", (req, res) => {
-  res.render("index.html");
+app.get("/", async (req, res) => {
+  // load categories from local categories.json and inject into the page
+  let cats = [];
+  try {
+    const raw = await fs.promises.readFile(categoriesFile, 'utf8');
+    const j = JSON.parse(raw);
+    cats = Array.isArray(j) ? j : (j.categories || j.trivia_categories || []);
+  } catch (e) {
+    console.error('Failed to load categories for page render from categories.json:', e && e.stack ? e.stack : e);
+    cats = [];
+  }
+  res.render("index.html", { categories: cats });
 });
 
-app.use("/create", (req, res) => {
+// serve preloaded categories as a JS snippet for static index.html to consume
+app.get('/preloaded-categories.js', async (req, res) => {
+  try {
+    const raw = await fs.promises.readFile(categoriesFile, 'utf8');
+    const j = JSON.parse(raw);
+    const cats = Array.isArray(j) ? j : (j.categories || j.trivia_categories || []);
+    res.setHeader('Content-Type', 'application/javascript');
+    res.send(`window.PRELOADED_CATEGORIES = ${JSON.stringify(cats)};`);
+  } catch (e) {
+    console.error('Failed to serve preloaded categories:', e && e.stack ? e.stack : e);
+    res.setHeader('Content-Type', 'application/javascript');
+    res.send('window.PRELOADED_CATEGORIES = [];');
+  }
+});
+
+app.get("/create", (req, res) => {
   res.render("create-room.html");
+});
+
+// categories endpoint - fetch from tryvia primary provider, fallback to empty
+app.get('/categories', async (req, res) => {
+  try {
+    // return categories from local categories.json
+    const raw = await fs.promises.readFile(categoriesFile, 'utf8');
+    const j = JSON.parse(raw);
+    const cats = Array.isArray(j) ? j : (j.categories || j.trivia_categories || []);
+    return res.json({ categories: cats });
+  } catch (err) {
+    console.error('Error fetching categories:', err && err.stack ? err.stack : err);
+    return res.json({ categories: [] });
+  }
 });
 
 
@@ -136,15 +176,24 @@ function decodeEntities(str) {
     .replace(/&uuml;/g, 'ü');
 }
 
-async function fetchQuestionsFromAPI(amount) {
+async function fetchQuestionsFromAPI(amount, category, difficulty) {
   // try primary remote provider first, then OpenTDB, then fallback to local questions
   const maxAttempts = 2; // remote attempts: 1=primary, 2=opentdb
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  const primaryUrl = `https://tryvia.ptr.red/api.php?amount=${amount}&type=multiple`;
-  const openTdbUrl = `https://opentdb.com/api.php?amount=${amount}&type=multiple`;
+  const primaryUrl = `https://tryvia.ptr.red/api.php?amount=${amount}`;
+  const openTdbUrl = `https://opentdb.com/api.php?amount=${amount}`;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       let url = (attempt === 1) ? primaryUrl : openTdbUrl;
+      // append category/difficulty for either provider when provided
+      if (category && category !== '') {
+        const sep = url.includes('?') ? '&' : '?';
+        url = `${url}${sep}category=${encodeURIComponent(category)}`;
+      }
+      if (difficulty && difficulty !== '') {
+        const sep = url.includes('?') ? '&' : '?';
+        url = `${url}${sep}difficulty=${encodeURIComponent(difficulty)}`;
+      }
       // if using primary provider, try to attach token
       if (attempt === 1) {
         try {
@@ -363,8 +412,11 @@ async function startGame(socket, data) {
       game.timeToAnswer = secs * 1000;
     }
   }
+  // category and difficulty (optional)
+  const category = (data && typeof data.category !== 'undefined') ? (data.category || '') : '';
+  const difficulty = (data && typeof data.difficulty !== 'undefined') ? (data.difficulty || '') : '';
   // fetch questions from API
-  game.questionPool = await fetchQuestionsFromAPI(amount);
+  game.questionPool = await fetchQuestionsFromAPI(amount, category, difficulty);
   if (!game.questionPool || game.questionPool.length === 0) {
     io.to(game.pin).emit('load-error', { message: 'Failed to load questions from OpenTDB. Please try again.' });
     return;

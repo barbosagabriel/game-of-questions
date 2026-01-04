@@ -113,6 +113,25 @@ h2 { color: white; font-size: 20px; }
 .answers { margin-top:12px }
 .qmeta { color: white; opacity: 0.9; margin-bottom:8px }
 .countdown { color: white; margin-top:8px }
+.timer {
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.timer-bar {
+  flex: 1 1 auto;
+  height: 12px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.timer-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg,#66bf39 0%, #f39c12 60%, #e74c3c 100%);
+  transition: width 0.1s linear;
+}
+.countdown-number { color: white; min-width:64px; text-align:right }
 .scores { margin-top:12px; color: white }
 .result { color: white; margin:6px 0 }
 
