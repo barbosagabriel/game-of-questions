@@ -2,24 +2,27 @@
 <html>
   <head>
     <title>Quiz Flash</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Mobile-first realtime trivia client" />
-    <link rel="stylesheet" href="css/index.css" />
-    <link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet" />
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/preloaded-categories.js"></script>
+     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+     <meta name="description" content="Mobile-first realtime trivia client" />
+     <link rel="stylesheet" href="css/index.css" />
+     <!-- Google Fonts: Poppins (display), Inter (body) -->
+     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Poppins:wght@700;900&display=swap" rel="stylesheet" />
+     <script src="/socket.io/socket.io.js"></script>
+     <script src="/preloaded-categories.js"></script>
   </head>
   <body>
     <main id="container">
-      <section id="join-section">
+      <header class="app-header">
         <h1 id="title">Quiz Flash</h1>
+      </header>
+      <section id="join-section">
         <div id="join-form">
           <div class="field">
             <label class="label">Nome:</label>
             <input id="username" type="text" name="username" autocomplete="off" />
           </div>
           <div class="field">
-            <label class="label">Código da Sala:</label>
+            <label class="label">Código:</label>
             <input id="pin" type="number" name="pin" />
           </div>
           <div class="field">
@@ -37,7 +40,7 @@
         <div id="players-list" class="players-list"></div>
         <div id="host-panel" class="host-panel hidden">
           <div id="host-pin" class="pin"></div>
-          <div style="margin-top:8px">
+          <div>
             <label class="label">Categoria</label>
             <select id="host-category">
               <option value="">Todas</option>
@@ -87,15 +90,37 @@
         try {
           const Ctx = window.AudioContext || window.webkitAudioContext;
           const ctx = new Ctx();
-          const o = ctx.createOscillator();
-          const g = ctx.createGain();
-          o.connect(g); g.connect(ctx.destination);
-          if (type === 'click') { o.type = 'square'; o.frequency.value = 880; g.gain.value = 0.03; }
-          else if (type === 'correct') { o.type = 'sine'; o.frequency.value = 880; g.gain.value = 0.06; }
-          else if (type === 'wrong') { o.type = 'sawtooth'; o.frequency.value = 220; g.gain.value = 0.06; }
-          else { o.type = 'sine'; o.frequency.value = 440; g.gain.value = 0.03; }
-          o.start();
-          setTimeout(() => { try { o.stop(); ctx.close(); } catch (e) {} }, 220);
+          if (type === 'correct') {
+            // Play a quick two-note chime (C5 then E5)
+            const o1 = ctx.createOscillator();
+            const g1 = ctx.createGain();
+            o1.type = 'triangle';
+            o1.frequency.value = 523.25; // C5
+            g1.gain.value = 0.08;
+            o1.connect(g1); g1.connect(ctx.destination);
+            o1.start();
+            setTimeout(() => { o1.stop(); }, 120);
+
+            const o2 = ctx.createOscillator();
+            const g2 = ctx.createGain();
+            o2.type = 'triangle';
+            o2.frequency.value = 659.25; // E5
+            g2.gain.value = 0.07;
+            o2.connect(g2); g2.connect(ctx.destination);
+            setTimeout(() => { o2.start(); }, 90);
+            setTimeout(() => { o2.stop(); }, 210);
+
+            setTimeout(() => { ctx.close(); }, 240);
+          } else {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.connect(g); g.connect(ctx.destination);
+            if (type === 'click') { o.type = 'square'; o.frequency.value = 880; g.gain.value = 0.03; }
+            else if (type === 'wrong') { o.type = 'sawtooth'; o.frequency.value = 220; g.gain.value = 0.06; }
+            else { o.type = 'sine'; o.frequency.value = 440; g.gain.value = 0.03; }
+            o.start();
+            setTimeout(() => { try { o.stop(); ctx.close(); } catch (e) {} }, 220);
+          }
         } catch (e) { /* ignore */ }
       }
 
@@ -293,10 +318,17 @@
         var container = document.getElementById('players-list');
         if (!container) return;
         if (!players || players.length === 0) {
-          container.innerHTML = '<div class="muted">Nenhum jogador conectado</div>';
+          container.innerHTML = '<div class="muted" style="text-align:center;">Nenhum jogador conectado</div>';
           return;
         }
-        container.innerHTML = '<h3>Jogadores conectados</h3>' + players.map(p => `<div>${p.username}</div>`).join('');
+        container.innerHTML = `
+          <div class="player-list-card">
+            <h3 class="player-list-title">Jogadores conectados</h3>
+            <ul class="player-list-ul">
+              ${players.map(p => `<li class="player-list-item">${p.username}</li>`).join('')}
+            </ul>
+          </div>
+        `;
       }
 
       socket.on('player-joined', data => {
@@ -322,7 +354,7 @@
           var panel = document.getElementById('host-panel');
           if (panel) panel.classList.remove('hidden');
           var topPin = document.getElementById('host-pin-top');
-          if (topPin) { topPin.innerText = 'Código da sala: ' + data.pin; topPin.classList.remove('hidden'); }
+          if (topPin) { topPin.innerText = 'Código: ' + data.pin; topPin.classList.remove('hidden'); }
           // auto-join host as a player using the entered display name
           var username = document.getElementById('username').value || '';
           if (username.trim()) {
