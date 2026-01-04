@@ -7,9 +7,12 @@ class Game {
     this.state = GameState.WAITING_PLAYERS;
     this.currentQuestion = {};
     this.previousQuestions = [];
-    this.timeToAnswer = timeToAnswer;
+    this.timeToAnswer = Number(timeToAnswer) || 10000;
     this.players = [];
     this.totalOfQuestions = 10;
+    this._answerTimer = null;
+    this._autoNextTimer = null;
+    this.questionPool = [];
   }
 
   setState(newState) {

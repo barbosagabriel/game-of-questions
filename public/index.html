@@ -3,87 +3,299 @@
   <head>
     <title>Game of Questions</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Mobile-first realtime trivia client" />
     <link rel="stylesheet" href="css/index.css" />
-    <link
-      href="https://fonts.googleapis.com/css?family=Raleway"
-      rel="stylesheet"
-    />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.js"></script>
+    <link href="https://fonts.googleapis.com/css?family=Raleway" rel="stylesheet" />
+    <script src="/socket.io/socket.io.js"></script>
   </head>
   <body>
-    <div id="container">
-      <h1 id="title">Join a Game</h1>
-      <form action="#">
-        <div class="form-field">
-          <label id="label">Display Name</label>
-          <input id="username" type="text" name="username" autofocus />
+    <main id="container">
+      <section id="join-section">
+        <h1 id="title">Quiz Flash</h1>
+        <div id="join-form">
+          <div class="field">
+            <label class="label">Nome:</label>
+            <input id="username" type="text" name="username" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label class="label">Código da Sala:</label>
+            <input id="pin" type="number" name="pin" />
+          </div>
+          <div class="field">
+            <button type="button" id="btn-join" class="btn" onclick="joinRoom()">Entrar</button>
+          </div>
+          <div class="field">
+            <button type="button" class="btn" onclick="createRoom()">Criar nova sala</button>
+          </div>
         </div>
-        <br />
-        <div class="form-field">
-          <label id="label">Game Pin</label>
-          <input id="pin" type="number" name="pin" />
+      </section>
+      <section id="lobby" class="hidden">
+        <div id="host-pin-top" class="host-pin-top hidden"></div>
+        <h2>Aguardando o jogo ser iniciado...</h2>
+        <div class="loader"></div>
+        <div id="players-list" class="players-list"></div>
+        <div id="host-panel" class="host-panel hidden">
+          <div id="host-pin" class="pin"></div>
+          <div style="margin-top:8px">
+            <label class="label">Número de perguntas</label>
+            <input id="host-amount" type="number" min="1" max="50" value="10" />
+            <label class="label">Tempo por pergunta (s)</label>
+            <input id="host-time" type="number" min="5" max="120" value="10" />
+            <button id="host-start" class="btn" onclick="startGameHost()">Iniciar jogo</button>
+          </div>
         </div>
-        <br />
-        <div class="form-field">
-          <button type="button" id="btn-join" class="btn" onclick="joinRoom()">
-            Join
-          </button>
+        <div style="margin-top:12px">
+          <button class="btn" onclick="leaveRoom()">Sair da sala</button>
         </div>
-      </form>
-      <br />
-      <center>
-        <a href="/create-room.html" id="host">Click here to create a room.</a>
-      </center>
-    </div>
+      </section>
+
+      <section id="question" class="hidden">
+        <div id="qmeta" class="qmeta"></div>
+        <h2 id="qtext"></h2>
+        <div id="answers" class="answers"></div>
+        <div id="countdown" class="countdown"></div>
+      </section>
+
+      <section id="final" class="hidden"></section>
+    </main>
     <script type="text/javascript">
-      var socket = io("https://game-of-questions.herokuapp.com/");
-      // var socket = io("http://localhost:3000");
+      var socket = io();
+      var isHost = false;
+      var currentPin = null;
+      var countdownInterval = null;
 
       function joinRoom() {
-        var pin = document.getElementById("pin").value;
-        var username = document.getElementById("username").value;
+        var pinEl = document.getElementById("pin");
+        var usernameEl = document.getElementById("username");
+        var pin = pinEl ? (pinEl.value || '').toString().trim() : '';
+        var username = usernameEl ? (usernameEl.value || '').toString().trim() : '';
+        if (!username) {
+          alert('Please enter your display name');
+          if (usernameEl) usernameEl.focus();
+          return;
+        }
+        if (!pin) {
+          alert('Please enter the room code');
+          if (pinEl) pinEl.focus();
+          return;
+        }
         socket.emit("player-join", { pin: pin, username: username });
-
-        document.getElementById("container").innerHTML =
-          '<h1 id = "title1">Waiting on host to start game</h1>' +
-          '<h3 id = "title2">Do you see your name on the screen?</h3>' +
-          '<div class="loader"></div><br/>';
+        // wait for server confirmation (player-joined) before showing lobby
       }
 
-      function renderMessage({ answers }) {
-        document.getElementById("container").innerHTML =
-          `<button onclick="answerSubmitted('${answers[0]}')" class="btn" id="answer1">${answers[0]}</button>` +
-          `<button onclick="answerSubmitted('${answers[1]}')" class="btn" id="answer2">${answers[1]}</button>` +
-          `<button onclick="answerSubmitted('${answers[2]}')" class="btn" id="answer3">${answers[2]}</button>` +
-          `<button onclick="answerSubmitted('${answers[3]}')" class="btn" id="answer4">${answers[3]}</button>`;
+      function createRoom() {
+        var username = document.getElementById('username').value || '';
+        if (!username.trim()) {
+          alert('Please enter your display name to host the game');
+          document.getElementById('username').focus();
+          return;
+        }
+        isHost = true;
+        socket.emit('room-created');
+        document.getElementById('lobby').classList.remove('hidden');
+        var jf = document.getElementById('join-section'); if (jf) jf.classList.add('hidden');
+        renderPlayers([]);
       }
 
-      function answerSubmitted(option) {
-        socket.emit("question-answered", { answer: option });
-        document.getElementById("container").innerHTML =
-          "<h1>Answer submitted! Waiting other players...</h1>";
+      function renderQuestion(data) {
+        document.getElementById("lobby").classList.add("hidden");
+        var jf = document.getElementById('join-section'); if (jf) jf.classList.add('hidden');
+        document.getElementById("final").classList.add("hidden");
+        document.getElementById("question").classList.remove("hidden");
+        document.getElementById("qtext").innerText = data.question;
+        document.getElementById("qmeta").innerText = `Question ${data.questionIndex}/${data.total}`;
+        var answersEl = document.getElementById("answers");
+        answersEl.innerHTML = "";
+        data.answers.forEach((a, i) => {
+          var btn = document.createElement('button');
+          btn.className = 'btn answer';
+          btn.innerText = a;
+          btn.onclick = () => submitAnswer(a, btn);
+          answersEl.appendChild(btn);
+        });
+
+        startCountdown(data.timeToAnswer || 10000);
       }
 
-      socket.on("next-question", data => {
-        console.log("Next question received. Rendering...");
-        renderMessage(data);
+      function submitAnswer(answer, btn) {
+        socket.emit('question-answered', { answer: answer });
+        // disable answer buttons
+        document.querySelectorAll('.answer').forEach(b => b.disabled = true);
+        btn.classList.add('selected');
+      }
+
+      function startCountdown(ms) {
+        clearInterval(countdownInterval);
+        var remaining = Math.ceil(ms/1000);
+        var el = document.getElementById('countdown');
+        el.innerText = `Time: ${remaining}s`;
+        countdownInterval = setInterval(() => {
+          remaining -= 1;
+          if (remaining <= 0) {
+            clearInterval(countdownInterval);
+            el.innerText = 'Time up';
+          } else {
+            el.innerText = `Time: ${remaining}s`;
+          }
+        }, 1000);
+      }
+
+      function leaveRoom() {
+        var pin = (document.getElementById('pin') && document.getElementById('pin').value) || currentPin;
+        socket.emit('leave-room', { pin: pin });
+        // reset UI to initial state
+        var jf = document.getElementById('join-section'); if (jf) jf.classList.remove('hidden');
+        var lobby = document.getElementById('lobby'); if (lobby) lobby.classList.add('hidden');
+        var question = document.getElementById('question'); if (question) { question.classList.add('hidden'); var ans = document.getElementById('answers'); if (ans) ans.innerHTML = ''; }
+        var final = document.getElementById('final'); if (final) { final.classList.add('hidden'); final.innerHTML = ''; }
+        var scores = document.getElementById('scores'); if (scores) scores.remove();
+        // hide host UI
+        var panel = document.getElementById('host-panel'); if (panel) panel.classList.add('hidden');
+        var topPin = document.getElementById('host-pin-top'); if (topPin) { topPin.classList.add('hidden'); topPin.innerText = ''; }
+        var hostPin = document.getElementById('host-pin'); if (hostPin) hostPin.innerText = '';
+        // clear players list
+        var playersList = document.getElementById('players-list'); if (playersList) playersList.innerHTML = '';
+        // reset flags and values
+        isHost = false;
+        currentPin = null;
+        if (document.getElementById('pin')) document.getElementById('pin').value = '';
+        // clear countdown
+        clearInterval(countdownInterval);
+        var countdownEl = document.getElementById('countdown'); if (countdownEl) countdownEl.innerText = '';
+        // remove any answer highlights
+        document.querySelectorAll('.answer').forEach(b => { b.classList.remove('correct','wrong','selected'); b.disabled = false; });
+      }
+
+      // host controls
+      function startGameHost() {
+        var amountEl = document.getElementById('host-amount');
+        var amount = amountEl ? Number(amountEl.value) : 10;
+        var timeEl = document.getElementById('host-time');
+        var time = timeEl ? Number(timeEl.value) : 10;
+        socket.emit('game-started', { amount: amount, timeToAnswer: time });
+        document.getElementById('host-start').style.display = 'none';
+      }
+
+      function restartSameGameHost() {
+        if (!isHost) return;
+        document.getElementById('final').classList.add('hidden');
+        document.getElementById('lobby').classList.remove('hidden');
+        document.getElementById('host-start').style.display = 'block';
+      }
+
+      function renderPlayers(players) {
+        var container = document.getElementById('players-list');
+        if (!container) return;
+        if (!players || players.length === 0) {
+          container.innerHTML = '<div class="muted">Nenhum jogador conectado</div>';
+          return;
+        }
+        container.innerHTML = '<h3>Jogadores conectados</h3>' + players.map(p => `<div>${p.username}</div>`).join('');
+      }
+
+      socket.on('player-joined', data => {
+        // data.players contains current players
+        renderPlayers(data.players);
+        // reveal lobby if not visible
+        document.getElementById('lobby').classList.remove('hidden');
+        var jf = document.getElementById('join-section'); if (jf) jf.classList.add('hidden');
       });
 
-      socket.on("time-up", data => {
-        console.log("Time is up received.");
-        document.getElementById("container").innerHTML =
-          "<h1>Time's up! Look at the screen</h1>";
+      socket.on('room-not-found', ({ pin }) => {
+        var createNew = confirm('Sala não encontrada. Deseja criar uma nova sala?');
+        if (createNew) {
+          createRoom();
+        } else {
+          var pinEl = document.getElementById('pin'); if (pinEl) pinEl.focus();
+        }
       });
 
-      socket.on("game-over", data => {
-        console.log("Game over received. Rendering...");
-        document.getElementById("container").innerHTML = "<h1>Game Over</h1>";
+      socket.on('room-pin', data => {
+        currentPin = data.pin;
+        if (isHost) {
+          var panel = document.getElementById('host-panel');
+          if (panel) panel.classList.remove('hidden');
+          var topPin = document.getElementById('host-pin-top');
+          if (topPin) { topPin.innerText = 'Código da sala: ' + data.pin; topPin.classList.remove('hidden'); }
+          // auto-join host as a player using the entered display name
+          var username = document.getElementById('username').value || '';
+          if (username.trim()) {
+            socket.emit('player-join', { pin: data.pin, username: username });
+          }
+        }
       });
 
-      socket.on("host-disconnected", () => {
-        console.log("Host disconnected received. Rendering...");
-        document.getElementById("container").innerHTML =
-          "<h1>The organizer is offline. Game over</h1>";
+      socket.on('player-left', data => {
+        renderPlayers(data.players);
+      });
+
+      socket.on('next-question', data => {
+        renderQuestion(data);
+      });
+
+      socket.on('time-up', () => {
+        // handled by reveal-answer which will also color choices
+        document.getElementById('countdown').innerText = "Time's up";
+        document.querySelectorAll('.answer').forEach(b => b.disabled = true);
+        clearInterval(countdownInterval);
+      });
+
+      socket.on('load-error', ({ message }) => {
+        // show friendly message and keep leave button visible
+        alert(message || 'Failed to load questions.');
+        // show lobby so host can try again or leave
+        document.getElementById('lobby').classList.remove('hidden');
+        var panel = document.getElementById('host-panel'); if (panel) panel.classList.remove('hidden');
+      });
+
+      socket.on('reveal-answer', ({ correctAnswer }) => {
+        clearInterval(countdownInterval);
+        var els = document.querySelectorAll('.answer');
+        els.forEach(b => {
+          b.disabled = true;
+          if (b.innerText === correctAnswer) {
+            b.classList.add('correct');
+          }
+          if (b.classList.contains('selected') && b.innerText !== correctAnswer) {
+            b.classList.add('wrong');
+          }
+        });
+      });
+
+      socket.on('partial-results', data => {
+        // show brief scoreboard below
+        var main = document.getElementById('question');
+        var html = '<h3>Ranking parcial</h3>' + data.players.map(p => `<div>${p.username}: ${p.score}</div>`).join('');
+        var existing = document.getElementById('scores');
+        if (!existing) {
+          var div = document.createElement('div'); div.id = 'scores'; div.className = 'scores'; div.innerHTML = html; main.appendChild(div);
+        } else { existing.innerHTML = html; }
+      });
+
+      socket.on('results', data => {
+        document.getElementById('question').classList.add('hidden');
+        document.getElementById('final').classList.remove('hidden');
+        var el = document.getElementById('final');
+        // render ranking with top3 icons
+        var html = '<h2>Resultado Final</h2><ol class="ranking">';
+        data.players.forEach((p, i) => {
+          var icon = '';
+          if (i === 0) icon = ' 🏆';
+          else if (i === 1) icon = ' 🥈';
+          else if (i === 2) icon = ' 🥉';
+          html += `<li class="result">${p.username}: ${p.score}${icon}</li>`;
+        });
+        html += '</ol>';
+        if (isHost) {
+          html += '<div style="margin-top:12px"><button class="btn" onclick="restartSameGameHost()">Reiniciar jogo</button><button class="btn" onclick="leaveRoom()">Sair</button></div>';
+        } else {
+          html += '<div style="margin-top:12px"><button class="btn" onclick="leaveRoom()">Sair</button></div>';
+        }
+        el.innerHTML = html;
+      });
+
+      socket.on('host-disconnected', () => {
+        document.getElementById('container').innerHTML = '<h1>O organizador está offline. Jogo finalizado</h1>';
       });
     </script>
   </body>
