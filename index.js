@@ -33,6 +33,57 @@ app.use("/create", (req, res) => {
 var allPlayers = [];
 var games = [];
 
+// tryvia token management
+let tryviaToken = null;
+let tryviaTokenFetchedAt = 0;
+const TRYVIA_TOKEN_REFRESH_MS = 3 * 60 * 60 * 1000; // 3 hours
+
+async function fetchTryviaToken() {
+  try {
+    const url = 'https://tryvia.ptr.red/api_token.php?command=request';
+    console.log('Requesting tryvia token from', url);
+    const res = await fetch(url);
+    if (!res || !res.ok) {
+      console.error('Tryvia token request failed status=', res && res.status);
+      return null;
+    }
+    let json = null;
+    try { json = await res.json(); } catch (e) {
+      console.error('Failed to parse tryvia token response body', e && e.stack ? e.stack : e);
+      return null;
+    }
+    console.log('Tryvia token response:', json);
+    // OpenTDB-like responses usually include a 'token' property
+    const token = json && (json.token || json.token_string || json.requested_token || json); // fallback to raw
+    if (typeof token === 'string' && token.length > 0) {
+      tryviaToken = token;
+      tryviaTokenFetchedAt = Date.now();
+      console.log('Obtained tryvia token; will refresh after', TRYVIA_TOKEN_REFRESH_MS / 1000 / 60, 'minutes');
+      return tryviaToken;
+    }
+    // If token not found, maybe the API returned token under different key
+    if (json && typeof json === 'object') {
+      for (const k of Object.keys(json)) {
+        if (typeof json[k] === 'string' && json[k].length > 10) {
+          tryviaToken = json[k];
+          tryviaTokenFetchedAt = Date.now();
+          console.log('Inferred tryvia token from response key', k);
+          return tryviaToken;
+        }
+      }
+    }
+    return null;
+  } catch (err) {
+    console.error('Error fetching tryvia token:', err && err.stack ? err.stack : err);
+    return null;
+  }
+}
+
+async function getTryviaToken() {
+  if (tryviaToken && (Date.now() - tryviaTokenFetchedAt) < TRYVIA_TOKEN_REFRESH_MS) return tryviaToken;
+  return await fetchTryviaToken();
+}
+
 io.on("connection", socket => {
   socket.on("room-created", data => {
     createRoom(socket);
@@ -93,10 +144,24 @@ async function fetchQuestionsFromAPI(amount) {
   const openTdbUrl = `https://opentdb.com/api.php?amount=${amount}&type=multiple`;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const url = (attempt === 1) ? primaryUrl : openTdbUrl;
+      let url = (attempt === 1) ? primaryUrl : openTdbUrl;
+      // if using primary provider, try to attach token
+      if (attempt === 1) {
+        try {
+          const token = await getTryviaToken();
+          if (token) {
+            const sep = url.includes('?') ? '&' : '?';
+            url = `${url}${sep}token=${encodeURIComponent(token)}`;
+            console.log('Using tryvia token for request');
+          }
+        } catch (e) {
+          console.error('Failed to acquire tryvia token before request:', e && e.stack ? e.stack : e);
+        }
+      }
       const start = Date.now();
       console.log(`Fetching trivia from ${url} (attempt ${attempt})`);
-      const res = await fetch(url);
+      // include a browser-like User-Agent & Accept header to avoid some provider restrictions
+      const res = await fetch(url, { headers: { 'User-Agent': 'GameOfQuestions/1.0 (+https://github.com)', Accept: 'application/json' } });
       const elapsed = Date.now() - start;
       console.log(`Fetch completed (attempt ${attempt}) url=${url} status=${res && res.status} time=${elapsed}ms`);
       if (!res || !res.ok) {
